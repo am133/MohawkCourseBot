@@ -9,6 +9,7 @@ from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.common.by import By
 from selenium.common.exceptions import TimeoutException, NoSuchElementException
 from src.models.course import Course
+from src.utils.browser_utils import get_text_from_cell, determine_status
 from src.utils.telegram_utils import TelegramNotifier
 from dotenv import load_dotenv
 import json
@@ -52,15 +53,6 @@ class RegistrationMonitor:
         # Fallback to standard input if /dev/tty is not available
         return input(prompt)
 
-
-    def get_text_from_cell(self, row, cell_index, get_link_text=False):
-        """Extract text from a cell, optionally getting link text."""
-        try:
-            if get_link_text:
-                return row.find_element(By.XPATH, f"./td[{cell_index}]//a").text.strip()
-            return row.find_element(By.XPATH, f"./td[{cell_index}]").text.strip()
-        except NoSuchElementException:
-            return ""
 
     def load_previous_states(self):
         """Load previous course states from a JSON file."""
@@ -374,24 +366,6 @@ class RegistrationMonitor:
             self.notifier.send_message(f"⚠️ Error during navigation reset: {str(e)}")
             raise
 
-    def determine_status(self, row):
-        """Determine the status of a course (Registered, Full, or Available)."""
-        # Check for checkbox registration
-        checkbox = row.find_elements(By.XPATH, ".//input[@type='checkbox']")
-        if checkbox:
-            checkbox_value = checkbox[0].get_attribute("value")
-            if checkbox_value and "Registered" in checkbox_value:
-                return "Registered"
-            if checkbox[0].get_attribute("checked") == "true":
-                return "Registered"
-
-        # Check status cell
-        raw_status = self.get_text_from_cell(row, 2, get_link_text=True)
-        if "Registered" in raw_status:
-            return "Registered"
-        elif "Full" in raw_status:
-            return "Full"
-        return "Available"
 
     def parse_course_info(self):
         """Parse course information using the more robust parsing logic."""
@@ -409,19 +383,19 @@ class RegistrationMonitor:
                         continue
 
                     # Get CRN (cell 3) and validate
-                    crn = self.get_text_from_cell(row, 3)
+                    crn = get_text_from_cell(row, 3)
                     if not crn or not crn.isdigit():
                         continue
 
                     course = Course(
-                        subject=self.get_text_from_cell(row, 4),
-                        course_num=self.get_text_from_cell(row, 5),
-                        title=self.get_text_from_cell(row, 6, get_link_text=True),
+                        subject=get_text_from_cell(row, 4),
+                        course_num=get_text_from_cell(row, 5),
+                        title=get_text_from_cell(row, 6, get_link_text=True),
                         crn=crn,
-                        status=self.determine_status(row),
-                        instructor=self.get_text_from_cell(row, 9),
-                        campus=self.get_text_from_cell(row, 7, get_link_text=True),
-                        dates=self.get_text_from_cell(row, 8, get_link_text=True)
+                        status=determine_status(row),
+                        instructor=get_text_from_cell(row, 9),
+                        campus=get_text_from_cell(row, 7, get_link_text=True),
+                        dates=get_text_from_cell(row, 8, get_link_text=True)
                     )
 
                     # Convert Course object to dict for state tracking
