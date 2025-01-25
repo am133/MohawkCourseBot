@@ -84,4 +84,3 @@ Distributed under the MIT License. See `LICENSE` for more information.
 ---
 
 **Note:** This project is not officially affiliated with Mohawk College. Use responsibly and in compliance with institutional policies.
-```
